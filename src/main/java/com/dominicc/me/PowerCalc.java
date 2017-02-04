@@ -74,6 +74,32 @@ public class PowerCalc {
         }
     }
 
+    public Map<Integer, Double> getForSupplier(StatProvider sp) {
+        synchronized (this) {
+            cleanup();
+
+            Map<Integer, Double> returnedMap = new HashMap<>();
+
+            for (Match m : api.getEventMatches(eventKey)) {
+                if(!m.getCompLevel().equals("qm") && qualsOnly) continue;
+
+                for (String team : m.getAlliances().getBlue().getTeams())
+                    scores[teamKeyPositionMap.get(team)][0] += sp.get(m.getScoreBreakdown().getBlue());
+                for (String team : m.getAlliances().getRed().getTeams())
+                    scores[teamKeyPositionMap.get(team)][0] += sp.get(m.getScoreBreakdown().getRed());
+            }
+
+            RealMatrix scoreMatrix = MatrixUtils.createRealMatrix(scores);
+            double[][] output = cholesky.getSolver().solve(scoreMatrix).getData();
+
+            for (Integer team : teams) {
+                returnedMap.put(team, output[teamKeyPositionMap.get("frc" + team)][0]);
+            }
+
+            return returnedMap;
+        }
+    }
+
     private void cleanup() {
         scores = new double[teams.size()][1];
     }
@@ -96,5 +122,9 @@ public class PowerCalc {
             finalMatrix = MatrixUtils.createRealMatrix(matrix);
             cholesky = new CholeskyDecomposition(finalMatrix);
         }
+    }
+
+    public interface StatProvider {
+        double get(Map<String, String> scoreBreakdown);
     }
 }
