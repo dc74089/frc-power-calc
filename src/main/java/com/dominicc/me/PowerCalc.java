@@ -52,9 +52,15 @@ public class PowerCalc {
                 if(!m.getCompLevel().equals("qm") && qualsOnly) continue;
 
                 for (String team : m.getAlliances().getBlue().getTeams())
-                    scores[teamKeyPositionMap.get(team)][0] += Double.parseDouble(m.getScoreBreakdown().getBlue().get(key));
+                    if (key.equalsIgnoreCase("opr"))
+                        scores[teamKeyPositionMap.get(team)][0] += m.getAlliances().getBlue().getScore();
+                    else
+                        scores[teamKeyPositionMap.get(team)][0] += Double.parseDouble(m.getScoreBreakdown().getBlue().get(key));
                 for (String team : m.getAlliances().getRed().getTeams())
-                    scores[teamKeyPositionMap.get(team)][0] += Double.parseDouble(m.getScoreBreakdown().getRed().get(key));
+                    if (key.equalsIgnoreCase("opr"))
+                        scores[teamKeyPositionMap.get(team)][0] += m.getAlliances().getBlue().getScore();
+                    else
+                        scores[teamKeyPositionMap.get(team)][0] += Double.parseDouble(m.getScoreBreakdown().getRed().get(key));
             }
 
             RealMatrix scoreMatrix = MatrixUtils.createRealMatrix(scores);
