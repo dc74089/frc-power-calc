@@ -8,13 +8,15 @@ import org.apache.commons.math3.linear.CholeskyDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeSet;
 
 public class PowerCalc {
     private String eventKey;
+    private Boolean qualsOnly;
     private SynchronousBlueAPI api = new SynchronousBlueAPI("DominicCanora", "PowerCalc", "1");
     private TreeSet<Integer> teams = new TreeSet<>();
-    private Set<Match> matches = new HashSet<>();
     private Map<String, Integer> teamKeyPositionMap = new HashMap<>();
     private double[][] matrix, scores;
     private RealMatrix finalMatrix;
@@ -47,6 +49,8 @@ public class PowerCalc {
             Map<Integer, Double> returnedMap = new HashMap<>();
 
             for (Match m : api.getEventMatches(eventKey)) {
+                if(!m.getCompLevel().equals("qm") && qualsOnly) continue;
+
                 for (String team : m.getAlliances().getBlue().getTeams())
                     scores[teamKeyPositionMap.get(team)][0] += Double.parseDouble(m.getScoreBreakdown().getBlue().get(key));
                 for (String team : m.getAlliances().getRed().getTeams())
@@ -69,6 +73,7 @@ public class PowerCalc {
     }
 
     public void reInit(boolean qualsOnly) {
+        this.qualsOnly = qualsOnly;
         synchronized (this) {
             for (Integer t : teams) {
                 for (Match m : api.getTeamEventMatches(t, eventKey)) {
