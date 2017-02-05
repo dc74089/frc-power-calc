@@ -69,7 +69,7 @@ public class PowerCalc {
                         scores[teamKeyPositionMap.get(team)][0] += Double.parseDouble(m.getScoreBreakdown().getBlue().get(key));
                 for (String team : m.getAlliances().getRed().getTeams())
                     if (key.equalsIgnoreCase("opr"))
-                        scores[teamKeyPositionMap.get(team)][0] += m.getAlliances().getBlue().getScore();
+                        scores[teamKeyPositionMap.get(team)][0] += m.getAlliances().getRed().getScore();
                     else
                         scores[teamKeyPositionMap.get(team)][0] += Double.parseDouble(m.getScoreBreakdown().getRed().get(key));
             }
