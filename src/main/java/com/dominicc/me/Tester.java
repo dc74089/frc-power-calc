@@ -1,16 +1,19 @@
 package com.dominicc.me;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Tester {
     public static void main(String... args) {
-        Map<Integer, Double> map = new PowerCalc("2016flor", true).getForKey("totalPoints");
+        PowerCalc c = new PowerCalc("2015gape", true);
+        final Map<Integer, Double> map = c.getForKey("total_points");
 
         List<Integer> teamNums = new ArrayList<>(map.keySet());
-        Collections.sort(teamNums, (o1, o2) -> (int) Math.round((map.get(o2) - map.get(o1)) * 1000));
+        Collections.sort(teamNums, new Comparator<Integer>() {
+            @Override
+            public int compare(Integer o1, Integer o2) {
+                return (int) Math.round((map.get(o2) - map.get(o1)) * 1000);
+            }
+        });
         int rank = 1;
         for (Integer t : teamNums) {
             System.out.println(rank + ". Team " + t + ": " + map.get(t));

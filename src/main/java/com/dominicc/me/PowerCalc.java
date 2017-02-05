@@ -3,19 +3,22 @@ package com.dominicc.me;
 import com.vegetarianbaconite.blueapi.SynchronousBlueAPI;
 import com.vegetarianbaconite.blueapi.beans.Alliance;
 import com.vegetarianbaconite.blueapi.beans.Match;
-import com.vegetarianbaconite.blueapi.beans.Team;
 import org.apache.commons.math3.linear.CholeskyDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
 public class PowerCalc {
     private String eventKey;
     private Boolean qualsOnly;
+
     private SynchronousBlueAPI api = new SynchronousBlueAPI("DominicCanora", "PowerCalc", "1");
+    private List<Match> eventMatches;
+
     private TreeSet<Integer> teams = new TreeSet<>();
     private Map<String, Integer> teamKeyPositionMap = new HashMap<>();
     private double[][] matrix, scores;
@@ -23,8 +26,16 @@ public class PowerCalc {
     private CholeskyDecomposition cholesky;
 
     public PowerCalc(String eventKey, Boolean qualsOnly) {
-        for (Team t : api.getEventTeams(eventKey)) {
-            teams.add(t.getTeamNumber());
+        eventMatches = api.getEventMatches(eventKey);
+
+        for (Match m : eventMatches) {
+            for(String t : m.getAlliances().getRed().getTeams())
+                if(!teams.contains(Integer.parseInt(t.substring(3))))
+                    teams.add(Integer.parseInt(t.substring(3)));
+
+            for(String t : m.getAlliances().getBlue().getTeams())
+                if(!teams.contains(Integer.parseInt(t.substring(3))))
+                    teams.add(Integer.parseInt(t.substring(3)));
         }
 
         int i = 0;
@@ -48,7 +59,7 @@ public class PowerCalc {
 
             Map<Integer, Double> returnedMap = new HashMap<>();
 
-            for (Match m : api.getEventMatches(eventKey)) {
+            for (Match m : eventMatches) {
                 if(!m.getCompLevel().equals("qm") && qualsOnly) continue;
 
                 for (String team : m.getAlliances().getBlue().getTeams())
@@ -80,7 +91,7 @@ public class PowerCalc {
 
             Map<Integer, Double> returnedMap = new HashMap<>();
 
-            for (Match m : api.getEventMatches(eventKey)) {
+            for (Match m : eventMatches) {
                 if(!m.getCompLevel().equals("qm") && qualsOnly) continue;
 
                 for (String team : m.getAlliances().getBlue().getTeams())
