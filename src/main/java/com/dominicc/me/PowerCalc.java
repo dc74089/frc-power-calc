@@ -5,6 +5,7 @@ import io.swagger.client.ApiException;
 import io.swagger.client.api.EventApi;
 import io.swagger.client.model.Match;
 import io.swagger.client.model.MatchAlliance;
+import io.swagger.client.model.MatchSimpleAlliances;
 import org.apache.commons.math3.linear.CholeskyDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
@@ -93,6 +94,21 @@ public class PowerCalc {
         }
     }
 
+    public Map<Integer, Double> getForKeySorted(String key) {
+        final Map<Integer, Double> resultMap = getForKey(key);
+
+        TreeMap<Integer, Double> m = new TreeMap<>(new Comparator<Integer>() {
+            @Override
+            public int compare(Integer val1, Integer val2) {
+                return (int) Math.round(1000 * (resultMap.get(val2) - resultMap.get(val1)));
+            }
+        });
+
+        m.putAll(resultMap);
+
+        return m;
+    }
+
     public Map<Integer, Double> getForSupplier(StatProvider sp) {
         synchronized (this) {
             cleanup();
@@ -127,7 +143,19 @@ public class PowerCalc {
         this.qualsOnly = qualsOnly;
         synchronized (this) {
             for (Integer t : teams) {
-                for (Match m : eventApi.getTeamEventMatches("frc" + t, eventKey, null)) {
+                List<Match> thisTeamMatches = new ArrayList<>();
+
+                for (Match m : eventMatches) {
+                    MatchSimpleAlliances a = m.getAlliances();
+
+                    if (a.getBlue().getTeamKeys().contains("frc" + t))
+                        thisTeamMatches.add(m);
+                    else if (a.getRed().getTeamKeys().contains("frc" + t))
+                        thisTeamMatches.add(m);
+                }
+
+
+                for (Match m : thisTeamMatches) {
                     if (m.getCompLevel() != Match.CompLevelEnum.QM && qualsOnly) continue;
 
                     MatchAlliance a = m.getAlliances().getBlue().getTeamKeys().contains("frc" + t) ?
