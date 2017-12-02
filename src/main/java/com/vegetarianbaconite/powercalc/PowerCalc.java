@@ -39,12 +39,20 @@ public class PowerCalc {
 
         for (Match m : eventMatches) {
             for (String t : m.getAlliances().getRed().getTeamKeys())
-                if (!teams.contains(Integer.parseInt(t.substring(3))))
-                    teams.add(Integer.parseInt(t.substring(3)));
+                try {
+                    if (!teams.contains(Integer.parseInt(t.substring(3))))
+                        teams.add(Integer.parseInt(t.substring(3)));
+                } catch (NumberFormatException e) {
+                    System.out.println("Ignoring non-integer team");
+                }
 
             for (String t : m.getAlliances().getBlue().getTeamKeys())
-                if (!teams.contains(Integer.parseInt(t.substring(3))))
-                    teams.add(Integer.parseInt(t.substring(3)));
+                try {
+                    if (!teams.contains(Integer.parseInt(t.substring(3))))
+                        teams.add(Integer.parseInt(t.substring(3)));
+                } catch (NumberFormatException e) {
+                    System.out.println("Ignoring non-integer team");
+                }
         }
 
         stats = eventMatches.get(0).getScoreBreakdown().getBlue().keySet();
