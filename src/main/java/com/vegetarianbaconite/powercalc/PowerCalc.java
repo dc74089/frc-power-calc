@@ -55,8 +55,6 @@ public class PowerCalc {
                 }
         }
 
-        stats = eventMatches.get(0).getScoreBreakdown().getBlue().keySet();
-
         int i = 0;
         for (Integer t : teams) {
             teamKeyPositionMap.put("frc" + t, i);
@@ -69,6 +67,9 @@ public class PowerCalc {
         this.eventKey = eventKey;
         cleanup();
         reInit(qualsOnly);
+
+        stats = eventMatches.get(0).getScoreBreakdown().getBlue().keySet();
+		
         System.out.println("Initialized PowerCalc");
     }
 
