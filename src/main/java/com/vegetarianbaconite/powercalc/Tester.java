@@ -1,4 +1,4 @@
-package com.dominicc.me;
+package com.vegetarianbaconite.powercalc;
 
 import io.swagger.client.ApiException;
 

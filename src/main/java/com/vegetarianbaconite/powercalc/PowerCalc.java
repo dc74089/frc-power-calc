@@ -1,5 +1,6 @@
-package com.dominicc.me;
+package com.vegetarianbaconite.powercalc;
 
+import com.vegetarianbaconite.powercalc.exceptions.NoMatchesException;
 import io.swagger.client.ApiClient;
 import io.swagger.client.ApiException;
 import io.swagger.client.api.EventApi;
@@ -8,6 +9,7 @@ import io.swagger.client.model.MatchAlliance;
 import io.swagger.client.model.MatchSimpleAlliances;
 import org.apache.commons.math3.linear.CholeskyDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.NonPositiveDefiniteMatrixException;
 import org.apache.commons.math3.linear.RealMatrix;
 
 import java.util.*;
@@ -166,8 +168,12 @@ public class PowerCalc {
                 }
             }
 
-            finalMatrix = MatrixUtils.createRealMatrix(matrix);
-            cholesky = new CholeskyDecomposition(finalMatrix);
+            try {
+                finalMatrix = MatrixUtils.createRealMatrix(matrix);
+                cholesky = new CholeskyDecomposition(finalMatrix);
+            } catch (NonPositiveDefiniteMatrixException e) {
+                throw new NoMatchesException();
+            }
         }
     }
 
