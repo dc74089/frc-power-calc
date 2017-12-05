@@ -14,11 +14,18 @@ import org.apache.commons.math3.linear.RealMatrix;
 
 import java.util.*;
 
-public class PowerCalc {
+/**
+ * A tool to calculate BPR, or Breakdown Power Rating, for a team at an event with a given stat.
+ *
+ * @author Dominic Canora
+ * @version 1.0
+ */
+public class BPRCalculator {
     private String eventKey;
     private Boolean qualsOnly;
+    private Boolean log = false;
 
-    private ApiClient apiClient;
+    public ApiClient apiClient;
     private EventApi eventApi;
     private List<Match> eventMatches;
 
@@ -30,7 +37,35 @@ public class PowerCalc {
 
     private Set<String> stats;
 
-    public PowerCalc(String apiKey, String eventKey, Boolean qualsOnly) throws ApiException {
+    /**
+     * Default constructor
+     *
+     * @param apiKey   A Blue Alliance API V3 key.
+     * @param eventKey The FIRST Event Key of the event to scan, in the form [4 digit year][event code].
+     * @throws ApiException
+     */
+    public BPRCalculator(String apiKey, String eventKey) throws ApiException {
+        this(apiKey, eventKey, true, false);
+    }
+
+    /**
+     * @param apiKey    A Blue Alliance API V3 key.
+     * @param eventKey  The FIRST Event Key of the event to scan, in the form [4 digit year][event code].
+     * @param qualsOnly Whether to only look at qualification matches for data.
+     * @throws ApiException
+     */
+    public BPRCalculator(String apiKey, String eventKey, Boolean qualsOnly) throws ApiException {
+        this(apiKey, eventKey, qualsOnly, false);
+    }
+
+    /**
+     * @param apiKey    A Blue Alliance API V3 key.
+     * @param eventKey  The FIRST Event Key of the event to scan, in the form [4 digit year][event code].
+     * @param qualsOnly Whether to only look at qualification matches for data.
+     * @param log       Whether to log some data to the console.
+     * @throws ApiException
+     */
+    public BPRCalculator(String apiKey, String eventKey, Boolean qualsOnly, Boolean log) throws ApiException {
         apiClient = new ApiClient();
         apiClient.setApiKey(apiKey);
         eventApi = new EventApi(apiClient);
@@ -43,7 +78,7 @@ public class PowerCalc {
                     if (!teams.contains(Integer.parseInt(t.substring(3))))
                         teams.add(Integer.parseInt(t.substring(3)));
                 } catch (NumberFormatException e) {
-                    System.out.println("Ignoring non-integer team");
+                    log("Ignoring non-integer team");
                 }
 
             for (String t : m.getAlliances().getBlue().getTeamKeys())
@@ -51,7 +86,7 @@ public class PowerCalc {
                     if (!teams.contains(Integer.parseInt(t.substring(3))))
                         teams.add(Integer.parseInt(t.substring(3)));
                 } catch (NumberFormatException e) {
-                    System.out.println("Ignoring non-integer team");
+                    log("Ignoring non-integer team");
                 }
         }
 
@@ -69,12 +104,21 @@ public class PowerCalc {
         reInit(qualsOnly);
 
         stats = eventMatches.get(0).getScoreBreakdown().getBlue().keySet();
-		
-        System.out.println("Initialized PowerCalc");
+
+        log("Initialized BPRCalculator");
     }
 
+    /**
+     * Get a BPR for the specified stat.
+     * @param key The key (from <code>getStats()</code>) to use for the BPR, or 'opr', 'dpr', or 'ccwm'
+     * @return A map in the form \<Team Number, BPR\>
+     */
     public Map<Integer, Double> getForKey(String key) {
         synchronized (this) {
+            if (key.equalsIgnoreCase("dpr"))
+                return getForSupplier(dprProvider);
+            if (key.equalsIgnoreCase("ccwm"))
+                return getForSupplier(ccwmProvider);
             cleanup();
 
             Map<Integer, Double> returnedMap = new HashMap<>();
@@ -105,6 +149,11 @@ public class PowerCalc {
         }
     }
 
+    /**
+     * Get BPR for the specified stat
+     * @param key The key (from <code>getStats()</code>) to use for the BPR
+     * @return A map in the form \<Team Number, BPR\>, sorted by BPR from highest to lowest
+     */
     public Map<Integer, Double> getForKeySorted(String key) {
         final Map<Integer, Double> resultMap = getForKey(key);
 
@@ -120,7 +169,13 @@ public class PowerCalc {
         return m;
     }
 
-    public Map<Integer, Double> getForSupplier(StatProvider sp) {
+    /**
+     * Get BPR for the given custom metric provider
+     *
+     * @param sp A <code>MetricProvider</code> that returns a custom metric
+     * @return A map in the form \<Team Number, BPR\>
+     */
+    public Map<Integer, Double> getForSupplier(MetricProvider sp) {
         synchronized (this) {
             cleanup();
 
@@ -130,9 +185,9 @@ public class PowerCalc {
                 if (m.getCompLevel() != Match.CompLevelEnum.QM && qualsOnly) continue;
 
                 for (String team : m.getAlliances().getBlue().getTeamKeys())
-                    scores[teamKeyPositionMap.get(team)][0] += sp.get(m.getScoreBreakdown().getBlue());
+                    scores[teamKeyPositionMap.get(team)][0] += sp.get(m.getScoreBreakdown().getBlue(), m.getScoreBreakdown().getRed());
                 for (String team : m.getAlliances().getRed().getTeamKeys())
-                    scores[teamKeyPositionMap.get(team)][0] += sp.get(m.getScoreBreakdown().getRed());
+                    scores[teamKeyPositionMap.get(team)][0] += sp.get(m.getScoreBreakdown().getRed(), m.getScoreBreakdown().getBlue());
             }
 
             RealMatrix scoreMatrix = MatrixUtils.createRealMatrix(scores);
@@ -146,11 +201,35 @@ public class PowerCalc {
         }
     }
 
+    /**
+     * Get BPR for the given custom metric provider
+     *
+     * @param sp A MetricProvider that returns a custom metric
+     * @return A map in the form \<Team Number, BPR\>, sorted by BPR from highest to lowest
+     */
+    public Map<Integer, Double> getForSupplierSorted(MetricProvider sp) {
+        final Map<Integer, Double> resultMap = getForSupplier(sp);
+
+        TreeMap<Integer, Double> m = new TreeMap<>(new Comparator<Integer>() {
+            @Override
+            public int compare(Integer val1, Integer val2) {
+                return (int) Math.round(1000 * (resultMap.get(val2) - resultMap.get(val1)));
+            }
+        });
+
+        m.putAll(resultMap);
+
+        return m;
+    }
+
+    /**
+     * Resets all scores
+     */
     private void cleanup() {
         scores = new double[teams.size()][1];
     }
 
-    public void reInit(boolean qualsOnly) throws ApiException {
+    private void reInit(boolean qualsOnly) throws ApiException {
         this.qualsOnly = qualsOnly;
         synchronized (this) {
             for (Integer t : teams) {
@@ -186,11 +265,56 @@ public class PowerCalc {
         }
     }
 
+    private void log(String s) {
+        if (log)
+            System.out.println(s);
+    }
+
+    /**
+     * Get a set of stats present in the current event
+     * @return A set of stats given for the current event
+     */
     public Set<String> getStats() {
         return stats;
     }
 
-    public interface StatProvider {
-        double get(Map<String, String> scoreBreakdown);
+    /**
+     * An interface to specify custom metrics for calculating BPRs
+     */
+    public interface MetricProvider {
+        /**
+         * Get a custom metric given the current opposing teams' score breakdowns.
+         *
+         * @param scoreBreakdown    The score breakdown of the current alliance
+         * @param opposingBreakdown The score breakdown of the opposing alliance
+         * @return A double representing the custom metric
+         */
+        double get(Map<String, String> scoreBreakdown, Map<String, String> opposingBreakdown);
     }
+
+    private MetricProvider dprProvider = new MetricProvider() {
+        @Override
+        public double get(Map<String, String> scoreBreakdown, Map<String, String> opposingBreakdown) {
+            try {
+                return Integer.parseInt(opposingBreakdown.get("totalPoints"));
+            } catch (NumberFormatException e) {
+                return Integer.parseInt(opposingBreakdown.get("total_points"));
+            }
+        }
+    };
+
+    private MetricProvider ccwmProvider = new MetricProvider() {
+        @Override
+        public double get(Map<String, String> scoreBreakdown, Map<String, String> opposingBreakdown) {
+            try {
+                int opposing = Integer.parseInt(opposingBreakdown.get("totalPoints"));
+                int current = Integer.parseInt(scoreBreakdown.get("totalPoints"));
+                return current - opposing;
+            } catch (NumberFormatException e) {
+                int opposing = Integer.parseInt(opposingBreakdown.get("total_points"));
+                int current = Integer.parseInt(scoreBreakdown.get("total_points"));
+                return current - opposing;
+            }
+        }
+    };
 }
