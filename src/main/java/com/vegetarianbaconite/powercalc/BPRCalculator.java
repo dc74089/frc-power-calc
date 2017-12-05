@@ -38,10 +38,10 @@ public class BPRCalculator {
     private Set<String> stats;
 
     /**
-     * Default constructor
+     * Default constructor, uses the default settings of only looking at only qualification matches, and not logging.
      *
      * @param apiKey   A Blue Alliance API V3 key.
-     * @param eventKey The FIRST Event Key of the event to scan, in the form [4 digit year][event code].
+     * @param eventKey The TBA Event Key of the event to scan, in the form [4 digit year][event code].
      * @throws ApiException
      */
     public BPRCalculator(String apiKey, String eventKey) throws ApiException {
@@ -49,8 +49,9 @@ public class BPRCalculator {
     }
 
     /**
+     * Get a new <code>BPRCalculator</code>, specifying the API key, event, and whether to look only at qualification matches.
      * @param apiKey    A Blue Alliance API V3 key.
-     * @param eventKey  The FIRST Event Key of the event to scan, in the form [4 digit year][event code].
+     * @param eventKey  The TBA Event Key of the event to scan, in the form [4 digit year][event code].
      * @param qualsOnly Whether to only look at qualification matches for data.
      * @throws ApiException
      */
@@ -59,8 +60,9 @@ public class BPRCalculator {
     }
 
     /**
+     * Get a new <code>BPRCalculator</code>, specifying the API key, event, whether to look only at qualification matches, and the logging mode.
      * @param apiKey    A Blue Alliance API V3 key.
-     * @param eventKey  The FIRST Event Key of the event to scan, in the form [4 digit year][event code].
+     * @param eventKey  The TBA Event Key of the event to scan, in the form [4 digit year][event code].
      * @param qualsOnly Whether to only look at qualification matches for data.
      * @param log       Whether to log some data to the console.
      * @throws ApiException
@@ -111,7 +113,7 @@ public class BPRCalculator {
     /**
      * Get a BPR for the specified stat.
      * @param key The key (from <code>getStats()</code>) to use for the BPR, or 'opr', 'dpr', or 'ccwm'
-     * @return A map in the form \<Team Number, BPR\>
+     * @return A map in the form &lt;Team Number, BPR&gt;
      */
     public Map<Integer, Double> getForKey(String key) {
         synchronized (this) {
@@ -152,7 +154,7 @@ public class BPRCalculator {
     /**
      * Get BPR for the specified stat
      * @param key The key (from <code>getStats()</code>) to use for the BPR
-     * @return A map in the form \<Team Number, BPR\>, sorted by BPR from highest to lowest
+     * @return A map in the form &lt;Team Number, BPR&gt;, sorted by BPR from highest to lowest
      */
     public Map<Integer, Double> getForKeySorted(String key) {
         final Map<Integer, Double> resultMap = getForKey(key);
@@ -173,7 +175,7 @@ public class BPRCalculator {
      * Get BPR for the given custom metric provider
      *
      * @param sp A <code>MetricProvider</code> that returns a custom metric
-     * @return A map in the form \<Team Number, BPR\>
+     * @return A map in the form &lt;Team Number, BPR&gt;
      */
     public Map<Integer, Double> getForSupplier(MetricProvider sp) {
         synchronized (this) {
@@ -205,7 +207,7 @@ public class BPRCalculator {
      * Get BPR for the given custom metric provider
      *
      * @param sp A MetricProvider that returns a custom metric
-     * @return A map in the form \<Team Number, BPR\>, sorted by BPR from highest to lowest
+     * @return A map in the form &lt;Team Number, BPR&gt;, sorted by BPR from highest to lowest
      */
     public Map<Integer, Double> getForSupplierSorted(MetricProvider sp) {
         final Map<Integer, Double> resultMap = getForSupplier(sp);
