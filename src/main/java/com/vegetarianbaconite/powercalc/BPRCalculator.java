@@ -20,19 +20,16 @@ import java.util.*;
  * @author Dominic Canora
  * @version 1.0
  */
+@SuppressWarnings({"RedundantCollectionOperation", "unused"})
 public class BPRCalculator {
-    private String eventKey;
     private Boolean qualsOnly;
-    private Boolean log = false;
 
     public ApiClient apiClient;
-    private EventApi eventApi;
     private List<Match> eventMatches;
 
     private TreeSet<Integer> teams = new TreeSet<>();
     private Map<String, Integer> teamKeyPositionMap = new HashMap<>();
     private double[][] matrix, scores;
-    private RealMatrix finalMatrix;
     private CholeskyDecomposition cholesky;
 
     private Set<String> stats;
@@ -42,7 +39,7 @@ public class BPRCalculator {
      *
      * @param apiKey   A Blue Alliance API V3 key.
      * @param eventKey The TBA Event Key of the event to scan, in the form [4 digit year][event code].
-     * @throws ApiException
+     * @throws ApiException ApiException
      */
     public BPRCalculator(String apiKey, String eventKey) throws ApiException {
         this(apiKey, eventKey, true, false);
@@ -50,10 +47,11 @@ public class BPRCalculator {
 
     /**
      * Get a new <code>BPRCalculator</code>, specifying the API key, event, and whether to look only at qualification matches.
+     *
      * @param apiKey    A Blue Alliance API V3 key.
      * @param eventKey  The TBA Event Key of the event to scan, in the form [4 digit year][event code].
      * @param qualsOnly Whether to only look at qualification matches for data.
-     * @throws ApiException
+     * @throws ApiException ApiException
      */
     public BPRCalculator(String apiKey, String eventKey, Boolean qualsOnly) throws ApiException {
         this(apiKey, eventKey, qualsOnly, false);
@@ -61,16 +59,19 @@ public class BPRCalculator {
 
     /**
      * Get a new <code>BPRCalculator</code>, specifying the API key, event, whether to look only at qualification matches, and the logging mode.
+     *
      * @param apiKey    A Blue Alliance API V3 key.
      * @param eventKey  The TBA Event Key of the event to scan, in the form [4 digit year][event code].
      * @param qualsOnly Whether to only look at qualification matches for data.
      * @param log       Whether to log some data to the console.
-     * @throws ApiException
+     * @throws ApiException ApiException
      */
     public BPRCalculator(String apiKey, String eventKey, Boolean qualsOnly, Boolean log) throws ApiException {
         apiClient = new ApiClient();
         apiClient.setApiKey(apiKey);
-        eventApi = new EventApi(apiClient);
+        EventApi eventApi = new EventApi(apiClient);
+
+        int year = Integer.parseInt(eventKey.substring(0, 3));
 
         eventMatches = eventApi.getEventMatches(eventKey, null);
 
@@ -101,17 +102,18 @@ public class BPRCalculator {
         matrix = new double[teams.size()][teams.size()];
         scores = new double[teams.size()][1];
 
-        this.eventKey = eventKey;
+        String eventKey1 = eventKey;
         cleanup();
         reInit(qualsOnly);
 
-        stats = eventMatches.get(0).getScoreBreakdown().getBlue().keySet();
+        //TODO: Set stats to the set of stat keys in the appropriate year
 
         log("Initialized BPRCalculator");
     }
 
     /**
      * Get a BPR for the specified stat.
+     *
      * @param key The key (from <code>getStats()</code>) to use for the BPR, or 'opr', 'dpr', or 'ccwm'
      * @return A map in the form &lt;Team Number, BPR&gt;
      */
@@ -153,6 +155,7 @@ public class BPRCalculator {
 
     /**
      * Get BPR for the specified stat
+     *
      * @param key The key (from <code>getStats()</code>) to use for the BPR
      * @return A map in the form &lt;Team Number, BPR&gt;, sorted by BPR from highest to lowest
      */
@@ -184,7 +187,7 @@ public class BPRCalculator {
             Map<Integer, Double> returnedMap = new HashMap<>();
 
             for (Match m : eventMatches) {
-                if (m.getCompLevel() != Match.CompLevelEnum.QM && qualsOnly) continue;
+                if (qualsOnly && m.getCompLevel() != Match.CompLevelEnum.QM) continue;
 
                 for (String team : m.getAlliances().getBlue().getTeamKeys())
                     scores[teamKeyPositionMap.get(team)][0] += sp.get(m.getScoreBreakdown().getBlue(), m.getScoreBreakdown().getRed());
@@ -231,7 +234,7 @@ public class BPRCalculator {
         scores = new double[teams.size()][1];
     }
 
-    private void reInit(boolean qualsOnly) throws ApiException {
+    private void reInit(boolean qualsOnly) {
         this.qualsOnly = qualsOnly;
         synchronized (this) {
             for (Integer t : teams) {
@@ -259,7 +262,7 @@ public class BPRCalculator {
             }
 
             try {
-                finalMatrix = MatrixUtils.createRealMatrix(matrix);
+                RealMatrix finalMatrix = MatrixUtils.createRealMatrix(matrix);
                 cholesky = new CholeskyDecomposition(finalMatrix);
             } catch (NonPositiveDefiniteMatrixException e) {
                 throw new NoMatchesException();
@@ -268,12 +271,14 @@ public class BPRCalculator {
     }
 
     private void log(String s) {
+        Boolean log = false;
         if (log)
             System.out.println(s);
     }
 
     /**
      * Get a set of stats present in the current event
+     *
      * @return A set of stats given for the current event
      */
     public Set<String> getStats() {
