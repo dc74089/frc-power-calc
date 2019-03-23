@@ -1,12 +1,8 @@
 package com.vegetarianbaconite.powercalc;
 
 import com.vegetarianbaconite.powercalc.exceptions.NoMatchesException;
-import io.swagger.client.ApiClient;
-import io.swagger.client.ApiException;
-import io.swagger.client.api.EventApi;
-import io.swagger.client.model.Match;
-import io.swagger.client.model.MatchAlliance;
-import io.swagger.client.model.MatchSimpleAlliances;
+import com.vegetarianbaconite.powercalc.models.Alliance;
+import com.vegetarianbaconite.powercalc.models.Match;
 import org.apache.commons.math3.linear.CholeskyDecomposition;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.NonPositiveDefiniteMatrixException;
@@ -24,7 +20,7 @@ import java.util.*;
 public class BPRCalculator {
     private Boolean qualsOnly;
 
-    public ApiClient apiClient;
+    private SimpleTbaApi api;
     private List<Match> eventMatches;
 
     private TreeSet<Integer> teams = new TreeSet<>();
@@ -33,15 +29,38 @@ public class BPRCalculator {
     private CholeskyDecomposition cholesky;
 
     private Set<String> stats;
+    private MetricProvider dprProvider = new MetricProvider() {
+        @Override
+        public double get(Map<String, String> scoreBreakdown, Map<String, String> opposingBreakdown) {
+            try {
+                return Integer.parseInt(opposingBreakdown.get("totalPoints"));
+            } catch (NumberFormatException e) {
+                return Integer.parseInt(opposingBreakdown.get("total_points"));
+            }
+        }
+    };
+    private MetricProvider ccwmProvider = new MetricProvider() {
+        @Override
+        public double get(Map<String, String> scoreBreakdown, Map<String, String> opposingBreakdown) {
+            try {
+                int opposing = Integer.parseInt(opposingBreakdown.get("totalPoints"));
+                int current = Integer.parseInt(scoreBreakdown.get("totalPoints"));
+                return current - opposing;
+            } catch (NumberFormatException e) {
+                int opposing = Integer.parseInt(opposingBreakdown.get("total_points"));
+                int current = Integer.parseInt(scoreBreakdown.get("total_points"));
+                return current - opposing;
+            }
+        }
+    };
 
     /**
      * Default constructor, uses the default settings of only looking at only qualification matches, and not logging.
      *
      * @param apiKey   A Blue Alliance API V3 key.
      * @param eventKey The TBA Event Key of the event to scan, in the form [4 digit year][event code].
-     * @throws ApiException ApiException
      */
-    public BPRCalculator(String apiKey, String eventKey) throws ApiException {
+    public BPRCalculator(String apiKey, String eventKey) {
         this(apiKey, eventKey, true, false);
     }
 
@@ -51,9 +70,8 @@ public class BPRCalculator {
      * @param apiKey    A Blue Alliance API V3 key.
      * @param eventKey  The TBA Event Key of the event to scan, in the form [4 digit year][event code].
      * @param qualsOnly Whether to only look at qualification matches for data.
-     * @throws ApiException ApiException
      */
-    public BPRCalculator(String apiKey, String eventKey, Boolean qualsOnly) throws ApiException {
+    public BPRCalculator(String apiKey, String eventKey, Boolean qualsOnly) {
         this(apiKey, eventKey, qualsOnly, false);
     }
 
@@ -64,16 +82,13 @@ public class BPRCalculator {
      * @param eventKey  The TBA Event Key of the event to scan, in the form [4 digit year][event code].
      * @param qualsOnly Whether to only look at qualification matches for data.
      * @param log       Whether to log some data to the console.
-     * @throws ApiException ApiException
      */
-    public BPRCalculator(String apiKey, String eventKey, Boolean qualsOnly, Boolean log) throws ApiException {
-        apiClient = new ApiClient();
-        apiClient.setApiKey(apiKey);
-        EventApi eventApi = new EventApi(apiClient);
+    public BPRCalculator(String apiKey, String eventKey, Boolean qualsOnly, Boolean log) {
+        api = new SimpleTbaApi(apiKey);
 
         int year = Integer.parseInt(eventKey.substring(0, 3));
 
-        eventMatches = eventApi.getEventMatches(eventKey, null);
+        eventMatches = api.getMatches(eventKey);
 
         for (Match m : eventMatches) {
             for (String t : m.getAlliances().getRed().getTeamKeys())
@@ -101,12 +116,11 @@ public class BPRCalculator {
 
         matrix = new double[teams.size()][teams.size()];
         scores = new double[teams.size()][1];
+        stats = eventMatches.get(0).getScoreBreakdown().getBlue().keySet();
 
         String eventKey1 = eventKey;
         cleanup();
         reInit(qualsOnly);
-
-        //TODO: Set stats to the set of stat keys in the appropriate year
 
         log("Initialized BPRCalculator");
     }
@@ -128,7 +142,7 @@ public class BPRCalculator {
             Map<Integer, Double> returnedMap = new HashMap<>();
 
             for (Match m : eventMatches) {
-                if (m.getCompLevel() != Match.CompLevelEnum.QM && qualsOnly) continue;
+                if (!m.getCompLevel().equals("qm") && qualsOnly) continue;
 
                 for (String team : m.getAlliances().getBlue().getTeamKeys())
                     if (key.equalsIgnoreCase("opr"))
@@ -187,7 +201,7 @@ public class BPRCalculator {
             Map<Integer, Double> returnedMap = new HashMap<>();
 
             for (Match m : eventMatches) {
-                if (qualsOnly && m.getCompLevel() != Match.CompLevelEnum.QM) continue;
+                if (qualsOnly && !m.getCompLevel().equals("qm")) continue;
 
                 for (String team : m.getAlliances().getBlue().getTeamKeys())
                     scores[teamKeyPositionMap.get(team)][0] += sp.get(m.getScoreBreakdown().getBlue(), m.getScoreBreakdown().getRed());
@@ -241,19 +255,17 @@ public class BPRCalculator {
                 List<Match> thisTeamMatches = new ArrayList<>();
 
                 for (Match m : eventMatches) {
-                    MatchSimpleAlliances a = m.getAlliances();
-
-                    if (a.getBlue().getTeamKeys().contains("frc" + t))
+                    if (m.getAlliances().getBlue().getTeamKeys().contains("frc" + t))
                         thisTeamMatches.add(m);
-                    else if (a.getRed().getTeamKeys().contains("frc" + t))
+                    else if (m.getAlliances().getRed().getTeamKeys().contains("frc" + t))
                         thisTeamMatches.add(m);
                 }
 
 
                 for (Match m : thisTeamMatches) {
-                    if (m.getCompLevel() != Match.CompLevelEnum.QM && qualsOnly) continue;
+                    if (!m.getCompLevel().equals("qm") && qualsOnly) continue;
 
-                    MatchAlliance a = m.getAlliances().getBlue().getTeamKeys().contains("frc" + t) ?
+                    Alliance a = m.getAlliances().getBlue().getTeamKeys().contains("frc" + t) ?
                             m.getAlliances().getBlue() : m.getAlliances().getRed();
                     for (String allianceMember : a.getTeamKeys()) {
                         matrix[teamKeyPositionMap.get("frc" + t)][teamKeyPositionMap.get(allianceMember)] += 1;
@@ -298,30 +310,4 @@ public class BPRCalculator {
          */
         double get(Map<String, String> scoreBreakdown, Map<String, String> opposingBreakdown);
     }
-
-    private MetricProvider dprProvider = new MetricProvider() {
-        @Override
-        public double get(Map<String, String> scoreBreakdown, Map<String, String> opposingBreakdown) {
-            try {
-                return Integer.parseInt(opposingBreakdown.get("totalPoints"));
-            } catch (NumberFormatException e) {
-                return Integer.parseInt(opposingBreakdown.get("total_points"));
-            }
-        }
-    };
-
-    private MetricProvider ccwmProvider = new MetricProvider() {
-        @Override
-        public double get(Map<String, String> scoreBreakdown, Map<String, String> opposingBreakdown) {
-            try {
-                int opposing = Integer.parseInt(opposingBreakdown.get("totalPoints"));
-                int current = Integer.parseInt(scoreBreakdown.get("totalPoints"));
-                return current - opposing;
-            } catch (NumberFormatException e) {
-                int opposing = Integer.parseInt(opposingBreakdown.get("total_points"));
-                int current = Integer.parseInt(scoreBreakdown.get("total_points"));
-                return current - opposing;
-            }
-        }
-    };
 }
